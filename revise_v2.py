@@ -19,7 +19,7 @@ from scipy.optimize import least_squares
 ##########################
 def extract_features(image_names):
     
-    sift = cv2.xfeatures2d.SIFT_create(0, 3, 0.04, 10)
+    sift = cv2.SIFT_create(0, 3, 0.04, 10)
     key_points_for_all = []
     descriptor_for_all = []
     colors_for_all = []
@@ -274,7 +274,7 @@ def main():
     img_names = sorted(img_names)
     
     for i in range(len(img_names)):
-        img_names[i] = imgdir + img_names[i]
+        img_names[i] = imgdir + '/' + img_names[i]
     # img_names = img_names[0:10]
 
     # K是摄像头的参数矩阵
