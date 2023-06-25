@@ -1,21 +1,19 @@
-# Sfm-python
+# sfm
+
 三维重建算法Structure from Motion(Sfm)的python实现
 
-需要的包：
-opencv-python
-opencv-python-contrib
-numpy
-scipy
-matplotlib
-可选包：
-mayavi
+## 环境准备
 
-根据需要选择绘图工具，mayavi的绘图效果相对更好
+```shell
+pip install -r requirements.txt
+```
 
-运行方法：
-配置config.py 中的图片路径后运行revise_v2.py即可。
+## 使用
 
-原理参考博客：
+见单元测试
+
+## 原理参考
+
 https://blog.csdn.net/aichipmunk/article/details/48132109
 
 
