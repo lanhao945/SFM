@@ -91,13 +91,13 @@ def match_all_features(descriptor_for_all, camera: datas.Camera):
 def find_transform(k, p1, p2):
     focal_length = 0.5 * (k[0, 0] + k[1, 1])
     principle_point = (k[0, 2], k[1, 2])
-    E, mask = cv2.findEssentialMat(p1, p2, focal_length, principle_point,
+    e, mask = cv2.findEssentialMat(p1, p2, focal_length, principle_point,
                                    cv2.RANSAC, 0.999, 1.0)
-    cameraMatrix = np.array([[focal_length, 0, principle_point[0]],
+    camera_matrix = np.array([[focal_length, 0, principle_point[0]],
                              [0, focal_length, principle_point[1]], [0, 0, 1]])
-    pass_count, R, T, mask = cv2.recoverPose(E, p1, p2, cameraMatrix, mask)
+    pass_count, r, t, mask = cv2.recoverPose(e, p1, p2, camera_matrix, mask)
 
-    return R, T, mask
+    return r, t, mask
 
 
 def get_matched_points(p1, p2, matches):
@@ -131,19 +131,19 @@ def init_structure(k, key_points_for_all, colors_for_all, matches_for_all):
                                 matches_for_all[0])
 
     if find_transform(k, p1, p2):
-        R, T, mask = find_transform(k, p1, p2)
+        r, t, mask = find_transform(k, p1, p2)
     else:
-        R, T, mask = np.array([]), np.array([]), np.array([])
+        r, t, mask = np.array([]), np.array([]), np.array([])
 
     p1 = mask_out_points(p1, mask)
     p2 = mask_out_points(p2, mask)
     colors = mask_out_points(c1, mask)
     # 设置第一个相机的变换矩阵，即作为剩下摄像机矩阵变换的基准。
-    R0 = np.eye(3, 3)
-    T0 = np.zeros((3, 1))
-    structure = reconstruct(k, R0, T0, R, T, p1, p2)
-    rotations = [R0, R]
-    motions = [T0, T]
+    r0 = np.eye(3, 3)
+    t0 = np.zeros((3, 1))
+    structure = reconstruct(k, r0, t0, r, t, p1, p2)
+    rotations = [r0, r]
+    motions = [t0, t]
     correspond_struct_idx = []
     for key_p in key_points_for_all:
         correspond_struct_idx.append(np.ones(len(key_p)) * - 1)
@@ -225,7 +225,7 @@ def get_obj_points_and_img_points(matches, struct_indices, structure,
 
 
 def get_3d_pos_v1(pos, ob, r, t, k, camera: datas.Camera):
-    p, J = cv2.projectPoints(pos.reshape(1, 1, 3), r, t, k, np.array([]))
+    p, j = cv2.projectPoints(pos.reshape(1, 1, 3), r, t, k, np.array([]))
     p = p.reshape(2)
     e = ob - p
     if abs(e[0]) > camera.x or abs(e[1]) > camera.y:
@@ -283,17 +283,17 @@ def rebuild(sfm_data: datas.SFMData) -> datas.ColorPoints:
                 image_points = np.append(image_points, [image_points[0]],
                                          axis=0)
 
-        _, r, T, _ = cv2.solvePnPRansac(object_points, image_points, k,
+        _, r, t, _ = cv2.solvePnPRansac(object_points, image_points, k,
                                         np.array([]))
-        R, _ = cv2.Rodrigues(r)
-        rotations.append(R)
-        motions.append(T)
+        r, _ = cv2.Rodrigues(r)
+        rotations.append(r)
+        motions.append(t)
         p1, p2 = get_matched_points(key_points_for_all[i],
                                     key_points_for_all[i + 1],
                                     matches_for_all[i])
         c1, c2 = get_matched_colors(colors_for_all[i], colors_for_all[i + 1],
                                     matches_for_all[i])
-        next_structure = reconstruct(k, rotations[i], motions[i], R, T, p1, p2)
+        next_structure = reconstruct(k, rotations[i], motions[i], r, t, p1, p2)
 
         correspond_struct_idx[i], correspond_struct_idx[
             i + 1], structure, colors = fusion_structure(matches_for_all[i],
