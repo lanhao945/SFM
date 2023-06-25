@@ -57,8 +57,7 @@ def extract_features_v2(images: datas.ImageDataset, sift_obj: cv2.SIFT = None):
             p = key_point.pt
             colors[i] = image[int(p[1])][int(p[0])]
         colors_for_all.append(colors)
-    return np.array(key_points_for_all), np.array(
-        descriptor_for_all), np.array(colors_for_all)
+    return key_points_for_all, descriptor_for_all, colors_for_all
 
 
 extract_features = extract_features_v2
@@ -83,7 +82,7 @@ def match_all_features(descriptor_for_all, camera: datas.Camera):
         matches = match_features(descriptor_for_all[i],
                                  descriptor_for_all[i + 1], camera)
         matches_for_all.append(matches)
-    return np.array(matches_for_all)
+    return matches_for_all
 
 
 ######################
@@ -148,7 +147,7 @@ def init_structure(k, key_points_for_all, colors_for_all, matches_for_all):
     correspond_struct_idx = []
     for key_p in key_points_for_all:
         correspond_struct_idx.append(np.ones(len(key_p)) * - 1)
-    correspond_struct_idx = np.array(correspond_struct_idx)
+    correspond_struct_idx = correspond_struct_idx
     idx = 0
     matches = matches_for_all[0]
     for i, match in enumerate(matches):
@@ -224,23 +223,6 @@ def get_obj_points_and_img_points(matches, struct_indices, structure,
 # bundle adjustment
 ########################
 
-# 这部分中，函数get_3d pos是原方法中对某些点的调整，
-# 而get_3d pos2是根据笔者的需求进行的修正，即将原本需要修正的点全部删除。
-# bundle adjustment请参见
-# https://www.cnblogs.com/zealousness/archive/2018/12/21/10156733.html
-
-def get_3d_pos(pos, ob, r, t, k):
-    def f(x):
-        p, J = cv2.projectPoints(x.reshape(1, 1, 3), r, t, k, np.array([]))
-        p = p.reshape(2)
-        e = ob - p
-        err = e
-
-        return err
-
-    res = least_squares(f, pos)
-    return res.x
-
 
 def get_3d_pos_v1(pos, ob, r, t, k, camera: datas.Camera):
     p, J = cv2.projectPoints(pos.reshape(1, 1, 3), r, t, k, np.array([]))
@@ -275,33 +257,6 @@ def bundle_adjustment(rotations, motions, k, correspond_struct_idx,
 #######################
 # 作图
 #######################
-
-# 这里有两种方式作图，其中一个是matplotlib做的，但是第二个是基于mayavi做的，效果上看，fig_v1效果更好。fig_v2是mayavi加颜色的效果。
-
-def fig(structure, colors):
-    colors /= 255
-    for i in range(len(colors)):
-        colors[i, :] = colors[i, :][[2, 1, 0]]
-    fig_a = plt.figure()
-    fig_a.suptitle('3d')
-    ax = fig_a.gca(projection='3d')
-    for i in range(len(structure)):
-        ax.scatter(structure[i, 0], structure[i, 1], structure[i, 2],
-                   color=colors[i, :], s=5)
-    ax.set_xlabel('x axis')
-    ax.set_ylabel('y axis')
-    ax.set_zlabel('z axis')
-    ax.view_init(elev=135, azim=90)
-    plt.show()
-
-
-def fig_v2(structure, colors):
-    for i in range(len(structure)):
-        mlab.points3d(structure[i][0], structure[i][1], structure[i][2],
-                      mode='point', name='dinosaur',
-                      color=tuple(colors[i] / 255))
-
-    mlab.show()
 
 
 def rebuild(sfm_data: datas.SFMData) -> datas.ColorPoints:
@@ -365,17 +320,6 @@ def rebuild(sfm_data: datas.SFMData) -> datas.ColorPoints:
         points=structure,
         colors=colors,
     )
-    # print(type(structure))
-    # print(type(motions))
-    # print(type(colors))
-    # print(len(structure))
-    # print(len(motions))
-    # np.save('structure.npy', structure)
-    # np.save('colors.npy', colors)
-
-    # fig(structure,colors)
-    # fig_v1(structure)
-    # fig_v2(structure, colors)
 
 
 if __name__ == '__main__':
