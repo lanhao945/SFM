@@ -18,19 +18,15 @@
 
 """
 
-import os
 import cv2
-import sys
 import math
-import collections
+
 import numpy as np
 import matplotlib.pyplot as plt
 from mayavi import mlab
-from scipy.linalg import lstsq
-from mpl_toolkits.mplot3d import Axes3D
 from scipy.optimize import least_squares
 
-from . import datas, utils
+from . import datas
 
 
 ##########################
@@ -93,9 +89,9 @@ def match_all_features(descriptor_for_all, camera: datas.Camera):
 ######################
 # 寻找图与图之间的对应相机旋转角度以及相机平移
 ######################
-def find_transform(K, p1, p2):
-    focal_length = 0.5 * (K[0, 0] + K[1, 1])
-    principle_point = (K[0, 2], K[1, 2])
+def find_transform(k, p1, p2):
+    focal_length = 0.5 * (k[0, 0] + k[1, 1])
+    principle_point = (k[0, 2], k[1, 2])
     E, mask = cv2.findEssentialMat(p1, p2, focal_length, principle_point,
                                    cv2.RANSAC, 0.999, 1.0)
     cameraMatrix = np.array([[focal_length, 0, principle_point[0]],
@@ -120,7 +116,7 @@ def get_matched_colors(c1, c2, matches):
 
 
 # 选择重合的点
-def maskout_points(p1, mask):
+def mask_out_points(p1, mask):
     p1_copy = []
     for i in range(len(mask)):
         if mask[i] > 0:
@@ -129,24 +125,24 @@ def maskout_points(p1, mask):
     return np.array(p1_copy)
 
 
-def init_structure(K, key_points_for_all, colors_for_all, matches_for_all):
+def init_structure(k, key_points_for_all, colors_for_all, matches_for_all):
     p1, p2 = get_matched_points(key_points_for_all[0], key_points_for_all[1],
                                 matches_for_all[0])
     c1, c2 = get_matched_colors(colors_for_all[0], colors_for_all[1],
                                 matches_for_all[0])
 
-    if find_transform(K, p1, p2):
-        R, T, mask = find_transform(K, p1, p2)
+    if find_transform(k, p1, p2):
+        R, T, mask = find_transform(k, p1, p2)
     else:
         R, T, mask = np.array([]), np.array([]), np.array([])
 
-    p1 = maskout_points(p1, mask)
-    p2 = maskout_points(p2, mask)
-    colors = maskout_points(c1, mask)
+    p1 = mask_out_points(p1, mask)
+    p2 = mask_out_points(p2, mask)
+    colors = mask_out_points(c1, mask)
     # 设置第一个相机的变换矩阵，即作为剩下摄像机矩阵变换的基准。
     R0 = np.eye(3, 3)
     T0 = np.zeros((3, 1))
-    structure = reconstruct(K, R0, T0, R, T, p1, p2)
+    structure = reconstruct(k, R0, T0, R, T, p1, p2)
     rotations = [R0, R]
     motions = [T0, T]
     correspond_struct_idx = []
@@ -167,14 +163,14 @@ def init_structure(K, key_points_for_all, colors_for_all, matches_for_all):
 #############
 # 三维重建
 #############
-def reconstruct(K, R1, T1, R2, T2, p1, p2):
+def reconstruct(k, r1, t1, r2, t2, p1, p2):
     proj1 = np.zeros((3, 4))
     proj2 = np.zeros((3, 4))
-    proj1[0:3, 0:3] = np.float32(R1)
-    proj1[:, 3] = np.float32(T1.T)
-    proj2[0:3, 0:3] = np.float32(R2)
-    proj2[:, 3] = np.float32(T2.T)
-    fk = np.float32(K)
+    proj1[0:3, 0:3] = np.float32(r1)
+    proj1[:, 3] = np.float32(t1.T)
+    proj2[0:3, 0:3] = np.float32(r2)
+    proj2[:, 3] = np.float32(t2.T)
+    fk = np.float32(k)
     proj1 = np.dot(fk, proj1)
     proj2 = np.dot(fk, proj2)
     s = cv2.triangulatePoints(proj1, proj2, p1.T, p2.T)
@@ -208,8 +204,8 @@ def fusion_structure(matches, struct_indices, next_struct_indices, structure,
 
 
 # 制作图像点以及空间点
-def get_objpoints_and_imgpoints(matches, struct_indices, structure,
-                                key_points):
+def get_obj_points_and_img_points(matches, struct_indices, structure,
+                                  key_points):
     object_points = []
     image_points = []
     for match in matches:
@@ -228,26 +224,26 @@ def get_objpoints_and_imgpoints(matches, struct_indices, structure,
 # bundle adjustment
 ########################
 
-# 这部分中，函数get_3dpos是原方法中对某些点的调整，而get_3dpos2是根据笔者的需求进行的修正，即将原本需要修正的点全部删除。
-# bundle adjustment请参见https://www.cnblogs.com/zealousness/archive/2018/12/21/10156733.html
+# 这部分中，函数get_3d pos是原方法中对某些点的调整，
+# 而get_3d pos2是根据笔者的需求进行的修正，即将原本需要修正的点全部删除。
+# bundle adjustment请参见
+# https://www.cnblogs.com/zealousness/archive/2018/12/21/10156733.html
 
-def get_3dpos(pos, ob, r, t, K):
-    dtype = np.float32
-
-    def F(x):
-        p, J = cv2.projectPoints(x.reshape(1, 1, 3), r, t, K, np.array([]))
+def get_3d_pos(pos, ob, r, t, k):
+    def f(x):
+        p, J = cv2.projectPoints(x.reshape(1, 1, 3), r, t, k, np.array([]))
         p = p.reshape(2)
         e = ob - p
         err = e
 
         return err
 
-    res = least_squares(F, pos)
+    res = least_squares(f, pos)
     return res.x
 
 
-def get_3dpos_v1(pos, ob, r, t, K, camera: datas.Camera):
-    p, J = cv2.projectPoints(pos.reshape(1, 1, 3), r, t, K, np.array([]))
+def get_3d_pos_v1(pos, ob, r, t, k, camera: datas.Camera):
+    p, J = cv2.projectPoints(pos.reshape(1, 1, 3), r, t, k, np.array([]))
     p = p.reshape(2)
     e = ob - p
     if abs(e[0]) > camera.x or abs(e[1]) > camera.y:
@@ -255,7 +251,7 @@ def get_3dpos_v1(pos, ob, r, t, K, camera: datas.Camera):
     return pos
 
 
-def bundle_adjustment(rotations, motions, K, correspond_struct_idx,
+def bundle_adjustment(rotations, motions, k, correspond_struct_idx,
                       key_points_for_all, structure, camera: datas.Camera):
     for i in range(len(rotations)):
         r, _ = cv2.Rodrigues(rotations[i])
@@ -269,8 +265,8 @@ def bundle_adjustment(rotations, motions, K, correspond_struct_idx,
             point3d_id = int(point3d_ids[j])
             if point3d_id < 0:
                 continue
-            new_point = get_3dpos_v1(structure[point3d_id], key_points[j].pt,
-                                     r, t, K, camera)
+            new_point = get_3d_pos_v1(structure[point3d_id], key_points[j].pt,
+                                      r, t, k, camera)
             structure[point3d_id] = new_point
 
     return structure
@@ -286,9 +282,9 @@ def fig(structure, colors):
     colors /= 255
     for i in range(len(colors)):
         colors[i, :] = colors[i, :][[2, 1, 0]]
-    fig = plt.figure()
-    fig.suptitle('3d')
-    ax = fig.gca(projection='3d')
+    fig_a = plt.figure()
+    fig_a.suptitle('3d')
+    ax = fig_a.gca(projection='3d')
     for i in range(len(structure)):
         ax.scatter(structure[i, 0], structure[i, 1], structure[i, 2],
                    color=colors[i, :], s=5)
@@ -297,12 +293,6 @@ def fig(structure, colors):
     ax.set_zlabel('z axis')
     ax.view_init(elev=135, azim=90)
     plt.show()
-
-
-def fig_v1(structure):
-    mlab.points3d(structure[:, 0], structure[:, 1], structure[:, 2],
-                  mode='point', name='dinosaur')
-    mlab.show()
 
 
 def fig_v2(structure, colors):
@@ -321,11 +311,12 @@ def rebuild(sfm_data: datas.SFMData) -> datas.ColorPoints:
     key_points_for_all, descriptor_for_all, colors_for_all = extract_features(
         sfm_data.image)
     matches_for_all = match_all_features(descriptor_for_all, sfm_data.camera)
-    structure, correspond_struct_idx, colors, rotations, motions = init_structure(
-        k, key_points_for_all, colors_for_all, matches_for_all)
+    structure, correspond_struct_idx, colors, \
+        rotations, motions = init_structure(k, key_points_for_all,
+                                            colors_for_all, matches_for_all)
 
     for i in range(1, len(matches_for_all)):
-        object_points, image_points = get_objpoints_and_imgpoints(
+        object_points, image_points = get_obj_points_and_img_points(
             matches_for_all[i], correspond_struct_idx[i], structure,
             key_points_for_all[i + 1])
         # 在python的opencv中solvePnPRansac函数的第一个参数长度需要大于7，否则会报错
@@ -370,13 +361,20 @@ def rebuild(sfm_data: datas.SFMData) -> datas.ColorPoints:
             i -= 1
         i += 1
 
-    print(len(structure))
-    print(len(motions))
+    return datas.ColorPoints(
+        points=structure,
+        colors=colors,
+    )
+    # print(type(structure))
+    # print(type(motions))
+    # print(type(colors))
+    # print(len(structure))
+    # print(len(motions))
     # np.save('structure.npy', structure)
     # np.save('colors.npy', colors)
 
     # fig(structure,colors)
-    fig_v1(structure)
+    # fig_v1(structure)
     # fig_v2(structure, colors)
 
 

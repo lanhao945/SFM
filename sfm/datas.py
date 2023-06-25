@@ -14,7 +14,7 @@
 
 import abc
 import logging
-from typing import Any, Iterator
+from typing import Iterator
 
 import numpy as np
 import numpy.typing as npt
@@ -61,8 +61,8 @@ class SFMData:
 
 @attrs
 class ColorPoints:
-    points = attrib(type=Any)
-    colors = attrib(type=Any)
+    points = attrib(type=npt.NDArray)
+    colors = attrib(type=npt.NDArray)
 
 
 if __name__ == '__main__':

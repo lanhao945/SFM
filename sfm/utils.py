@@ -17,6 +17,8 @@ import logging
 from typing import List
 
 import cv2
+from mayavi import mlab
+import numpy.typing as npt
 
 from .datas import ImageDataset
 
@@ -53,6 +55,12 @@ class LocalStorageImageDataset(ImageDataset):
     def __iter__(self):
         for i in range(len(self)):
             yield self[i]
+
+
+def fig_v1(points: npt.NDArray):
+    mlab.points3d(points[:, 0], points[:, 1], points[:, 2],
+                  mode='point', name='dinosaur')
+    mlab.show()
 
 
 if __name__ == '__main__':
