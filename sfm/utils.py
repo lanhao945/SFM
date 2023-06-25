@@ -13,11 +13,14 @@
 #                                  ░
 
 import os
+import logging
 from typing import List
 
 import cv2
 
-from .core import ImageDataset
+from .datas import ImageDataset
+
+logger = logging.getLogger(__name__)
 
 
 class LocalStorageImageDataset(ImageDataset):
@@ -38,6 +41,7 @@ class LocalStorageImageDataset(ImageDataset):
             self._data_path,
             self._img_names[item]
         )
+        logger.debug("%s path :%s", item, image_path)
         if not os.path.exists(image_path):
             raise Exception(f"{image_path} not exists")
         image = cv2.imread(image_path)
