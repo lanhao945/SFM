@@ -94,7 +94,8 @@ def find_transform(k, p1, p2):
     e, mask = cv2.findEssentialMat(p1, p2, focal_length, principle_point,
                                    cv2.RANSAC, 0.999, 1.0)
     camera_matrix = np.array([[focal_length, 0, principle_point[0]],
-                             [0, focal_length, principle_point[1]], [0, 0, 1]])
+                              [0, focal_length, principle_point[1]],
+                              [0, 0, 1]])
     pass_count, r, t, mask = cv2.recoverPose(e, p1, p2, camera_matrix, mask)
 
     return r, t, mask
@@ -266,9 +267,12 @@ def rebuild(sfm_data: datas.SFMData) -> datas.ColorPoints:
     key_points_for_all, descriptor_for_all, colors_for_all = extract_features(
         sfm_data.image)
     matches_for_all = match_all_features(descriptor_for_all, sfm_data.camera)
-    structure, correspond_struct_idx, colors, \
-        rotations, motions = init_structure(k, key_points_for_all,
-                                            colors_for_all, matches_for_all)
+    (structure,
+     correspond_struct_idx,
+     colors,
+     rotations,
+     motions) = init_structure(k, key_points_for_all,
+                               colors_for_all, matches_for_all)
 
     for i in range(1, len(matches_for_all)):
         object_points, image_points = get_obj_points_and_img_points(
