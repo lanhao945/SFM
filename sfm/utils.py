@@ -14,10 +14,11 @@
 
 import os
 import logging
-from typing import List
+from typing import List, Iterator, Iterable
 
 import cv2
 from mayavi import mlab
+import numpy as np
 import numpy.typing as npt
 
 from .datas import ImageDataset
@@ -25,36 +26,36 @@ from .datas import ImageDataset
 logger = logging.getLogger(__name__)
 
 
+class ImageFileBytesDataset(Iterable[bytes]):
+    _image_path: str
+    _image_names: List[str]
+
+    def __init__(self, path):
+        img_names = os.listdir(path)
+        self._image_names = sorted(img_names)
+        self._image_path = path
+
+    def __iter__(self) -> Iterator[bytes]:
+        for image_name in self._image_names:
+            image_path = os.path.join(self._image_path, image_name)
+            with open(image_path, "rb") as f:
+                yield f.read()
+
+
 class LocalStorageImageDataset(ImageDataset):
     """
     磁盘目录载入数据
     """
 
-    _data_path: str
-    _img_names: List[str]
+    _bytes_iter: Iterable[bytes]
 
     def __init__(self, data_path):
-        img_names = os.listdir(data_path)
-        self._img_names = sorted(img_names)
-        self._data_path = data_path
-
-    def __getitem__(self, item):
-        image_path = os.path.join(
-            self._data_path,
-            self._img_names[item]
-        )
-        logger.debug("%s path :%s", item, image_path)
-        if not os.path.exists(image_path):
-            raise Exception(f"{image_path} not exists")
-        image = cv2.imread(image_path)
-        return image
-
-    def __len__(self):
-        return len(self._img_names)
+        self._bytes_iter = ImageFileBytesDataset(data_path)
 
     def __iter__(self):
-        for i in range(len(self)):
-            yield self[i]
+        for data_bytes in self._bytes_iter:
+            yield cv2.imdecode(np.frombuffer(data_bytes, np.uint8),
+                               cv2.IMREAD_COLOR)
 
 
 def fig_v1(points: npt.NDArray):

@@ -14,7 +14,7 @@
 
 import abc
 import logging
-from typing import Iterator
+from typing import Iterator, Iterable
 
 import numpy as np
 import numpy.typing as npt
@@ -36,19 +36,7 @@ class Camera:
     y = attrib(type=int, default=1)
 
 
-class ImageDataset(abc.ABC):
-    @abc.abstractmethod
-    def __len__(self) -> int:
-        ...
-
-    @abc.abstractmethod
-    def __getitem__(self, item) -> npt.NDArray[np.uint8]:
-        ...
-
-    @abc.abstractmethod
-    def __iter__(self) -> Iterator[npt.NDArray[np.uint8]]:
-        ...
-
+ImageDataset = Iterable[npt.NDArray[np.uint8]]
 
 _DEFAULT_CAMERA = Camera()
 
