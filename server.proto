@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package sfm_server;
+
+service SfmServer {
+  // Sends a greeting
+  rpc rebuild (stream DataRequest) returns (stream DataReply) {}
+}
+
+// The request message containing the user's name.
+message DataRequest {
+  int32 type_id =1;
+  optional bytes image = 2;
+  optional DataCamera camera = 3;
+}
+
+message DataCamera{
+  float mrt = 1;
+  repeated float k = 2;
+  float x = 3;
+  float y = 4;
+}
+
+message DataPoint{
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+message DataColor{
+  uint32 r = 1;
+  uint32 g = 2;
+  uint32 b = 3;
+}
+
+message DataIter{
+  DataPoint point = 1;
+  DataColor color = 2;
+}
+
+message DataReply {
+  DataIter row = 1;
+}
