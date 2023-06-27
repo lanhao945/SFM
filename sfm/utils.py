@@ -14,11 +14,11 @@
 
 import os
 import logging
-from typing import List, Iterator, Iterable
+from typing import List, Iterator, Iterable, Union
 
 import cv2
-from mayavi import mlab
 import numpy as np
+from mayavi import mlab
 import numpy.typing as npt
 
 from .datas import ImageDataset
@@ -49,8 +49,11 @@ class LocalStorageImageDataset(ImageDataset):
 
     _bytes_iter: Iterable[bytes]
 
-    def __init__(self, data_path):
-        self._bytes_iter = ImageFileBytesDataset(data_path)
+    def __init__(self, data: Union[str, Iterable[bytes]]):
+        if isinstance(data, str):
+            self._bytes_iter = ImageFileBytesDataset(data)
+        else:
+            self._bytes_iter = data
 
     def __iter__(self):
         for data_bytes in self._bytes_iter:
